@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+_build/
+simulation_exports/
+
+*.log
+logs/
+
+.DS_Store
+Thumbs.db

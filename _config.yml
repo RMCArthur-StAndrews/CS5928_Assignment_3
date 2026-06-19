@@ -1,0 +1,12 @@
+title: CS5928 Assignment 3
+exclude_patterns:
+  - .venv/**
+  - _build/**
+  - __pycache__/**
+sphinx:
+  extra_extensions:
+    - sphinxcontrib.bibtex
+  config:
+    bibtex_reference_style: author_year
+    bibtex_bibfiles:
+      - "Notebook Resources/Primo_BibTeX_Export.bib"
