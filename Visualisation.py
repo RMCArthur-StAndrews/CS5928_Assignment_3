@@ -8,7 +8,12 @@ from matplotlib.ticker import MaxNLocator
 # ---------------------------------------------------------------------------
 
 def _collapse_stage(run_metrics):
-    """Return the first stage index where connectivity drops to False, or None."""
+    """
+    Function that finds the first stage index at which connectivity drops to False.
+
+    @param run_metrics A list of metric dicts for a single simulation run.
+    @return The integer stage index of first disconnection, or None if connectivity never drops.
+    """
     for i, m in enumerate(run_metrics):
         if not m["connectivity"]:
             return i
@@ -16,19 +21,35 @@ def _collapse_stage(run_metrics):
 
 
 def _largest_cluster(cluster_sizes_and_counts):
-    """Return the size of the largest cluster from a cluster_sizes_and_counts list."""
+    """
+    Function that extracts the size of the largest connected component from a cluster summary list.
+
+    @param cluster_sizes_and_counts A list of (size, count) tuples as produced by GraphMetricCollector.
+    @return The size of the largest cluster as an integer.
+    """
     if not cluster_sizes_and_counts:
         return 0
     return max(size for size, _ in cluster_sizes_and_counts)
 
 
 def _total_cluster_count(cluster_sizes_and_counts):
-    """Return the total number of clusters."""
+    """
+    Function that sums the total number of connected components from a cluster summary list.
+
+    @param cluster_sizes_and_counts A list of (size, count) tuples as produced by GraphMetricCollector.
+    @return The total number of clusters as an integer.
+    """
     return sum(count for _, count in cluster_sizes_and_counts)
 
 
 def _finite_points(stages, values):
-    """Return stages/values pairs where metric is finite."""
+    """
+    Function that filters out infinite metric values, returning only the finite stage/value pairs.
+
+    @param stages A list of stage indices.
+    @param values A list of metric values corresponding to each stage.
+    @return A tuple (finite_stages, finite_values) with infinite entries removed.
+    """
     finite_stages = [s for s, v in zip(stages, values) if v != float("inf")]
     finite_values = [v for v in values if v != float("inf")]
     return finite_stages, finite_values
@@ -37,21 +58,30 @@ def _finite_points(stages, values):
 
 class SimulationVisualiser:
     """
-    Visualises metrics from multiple Progressive Random Failure simulation runs.
-
-    :param simulation_runs: List of runs, where each run is a list of metric dicts
-                            as returned by GraphMetricCollector.collect_metrics()
-                            (i.e. the metrics_at_stages list from apply_overall_failure).
-    :param labels: Optional list of display labels, one per run.
+    Class that produces matplotlib plots for metrics collected across multiple simulation runs.
     """
 
     def __init__(self, simulation_runs, labels=None):
+        """
+        Constructor for SimulationVisualiser.
+
+        @param simulation_runs List of runs, where each run is a list of metric dicts
+                               as returned by GraphMetricCollector.collect_metrics().
+        @param labels Optional list of display labels, one per run.
+        """
         self.runs = simulation_runs
         n = len(simulation_runs)
         self.labels = labels if labels is not None else [f"Run {i + 1}" for i in range(n)]
         self._colours = [cm.tab10(i / max(n, 1)) for i in range(n)]
 
     def _style_axis(self, ax, title, ylabel):
+        """
+        Method that applies standard styling (title, axis labels, grid, background) to a matplotlib Axes.
+
+        @param ax The matplotlib Axes object to style.
+        @param title The chart title string.
+        @param ylabel The y-axis label string.
+        """
         ax.set_title(title)
         ax.set_xlabel("Random Edge Failure Stage")
         ax.set_ylabel(ylabel)
@@ -60,6 +90,11 @@ class SimulationVisualiser:
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     def _add_legend(self, ax):
+        """
+        Method that adds a legend to a matplotlib Axes if labelled series are present.
+
+        @param ax The matplotlib Axes object to add the legend to.
+        """
         handles, labels = ax.get_legend_handles_labels()
         if handles and labels:
             ax.legend(fontsize="small", frameon=True, loc="best")
@@ -68,8 +103,12 @@ class SimulationVisualiser:
 
     def plot_connectivity(self, ax=None, title="Network Connectivity over Failure Stages"):
         """
-        Plot connectivity (1 = connected, 0 = disconnected) for each run.
-        A red dot marks the first stage where connectivity collapses.
+        Method that plots a binary connectivity series (1 = connected, 0 = disconnected) for each run,
+        with a red marker at the first stage where connectivity collapses.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
         """
         standalone = ax is None
         if standalone:
@@ -97,8 +136,12 @@ class SimulationVisualiser:
     def plot_average_shortest_path(self, ax=None,
                                     title="Average Shortest Path over Failure Stages"):
         """
-        Plot average shortest path length for each run.
-        Infinite values (graph disconnected) are omitted.
+        Method that plots the average shortest path length for each run, omitting infinite values
+        that arise when the graph is disconnected.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
         """
         standalone = ax is None
         if standalone:
@@ -121,7 +164,13 @@ class SimulationVisualiser:
         return ax
 
     def plot_average_degree(self, ax=None, title="Average Degree over Failure Stages"):
-        """Plot average node degree for each run across all failure stages."""
+        """
+        Method that plots the average node degree for each run across all failure stages.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
+        """
         standalone = ax is None
         if standalone:
             _, ax = plt.subplots(figsize=(9, 4))
@@ -142,8 +191,12 @@ class SimulationVisualiser:
     def plot_largest_cluster_size(self, ax=None,
                                    title="Largest Cluster Size over Failure Stages"):
         """
-        Plot the size of the largest connected component for each run.
-        A red dot marks the stage where connectivity collapses.
+        Method that plots the size of the largest connected component for each run,
+        with a red marker at the first connectivity collapse stage.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
         """
         standalone = ax is None
         if standalone:
@@ -168,7 +221,13 @@ class SimulationVisualiser:
         return ax
 
     def plot_cluster_count(self, ax=None, title="Number of Clusters over Failure Stages"):
-        """Plot the total number of connected components for each run."""
+        """
+        Method that plots the total number of connected components for each run across all failure stages.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
+        """
         standalone = ax is None
         if standalone:
             _, ax = plt.subplots(figsize=(9, 4))
@@ -188,8 +247,12 @@ class SimulationVisualiser:
 
     def plot_diameter(self, ax=None, title="Network Diameter over Failure Stages"):
         """
-        Plot network diameter for each run.
-        Infinite values (graph disconnected) are omitted.
+        Method that plots the network diameter for each run, omitting infinite values
+        that arise when the graph is disconnected.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
         """
         standalone = ax is None
         if standalone:
@@ -213,7 +276,13 @@ class SimulationVisualiser:
 
     def plot_largest_component_diameter(self, ax=None,
                                          title="Largest-Component Diameter over Failure Stages"):
-        """Plot largest-component diameter for each run across all failure stages."""
+        """
+        Method that plots the diameter of the largest connected component for each run across all stages.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
+        """
         standalone = ax is None
         if standalone:
             _, ax = plt.subplots(figsize=(9, 4))
@@ -231,11 +300,39 @@ class SimulationVisualiser:
             plt.show()
         return ax
 
+    def plot_clustering(self, ax=None, title="Average Clustering Coefficient over Failure Stages"):
+        """
+        Method that plots the average clustering coefficient for each run across all failure stages.
+
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Chart title string.
+        @return The matplotlib Axes containing the plot.
+        """
+        standalone = ax is None
+        if standalone:
+            _, ax = plt.subplots(figsize=(9, 4))
+
+        for run, colour, label in zip(self.runs, self._colours, self.labels):
+            stages = list(range(len(run)))
+            values = [m.get("average_clustering", 0.0) for m in run]
+            ax.plot(stages, values, color=colour, label=label, linewidth=1.8, alpha=0.9)
+
+        self._style_axis(ax, title, "Average Clustering Coefficient")
+        self._add_legend(ax)
+
+        if standalone:
+            plt.tight_layout()
+            plt.show()
+        return ax
+
     def plot_degree_distribution(self, stage=-1, ax=None, title=None):
         """
-        Plot the degree distribution at a specific failure stage for each run.
+        Method that plots the degree distribution as a bar chart at a specific failure stage.
 
-        :param stage: Stage index to visualise (default -1 = final stage).
+        @param stage Stage index to visualise; -1 selects the final recorded stage.
+        @param ax Optional matplotlib Axes to draw on; a new figure is created if None.
+        @param title Optional chart title; a default is generated from the stage index if None.
+        @return The matplotlib Axes containing the plot.
         """
         standalone = ax is None
         if standalone:
@@ -286,11 +383,11 @@ class SimulationVisualiser:
 
     def plot_all(self, stage_for_degree_dist=-1):
         """
-        Render all metric panels in a single figure.
+        Method that renders all metric panels in a single combined dashboard figure.
 
-        :param stage_for_degree_dist: Stage index used for the degree distribution panel.
+        @param stage_for_degree_dist Stage index used for the degree distribution panel; -1 = final stage.
         """
-        fig, axes = plt.subplots(4, 2, figsize=(15, 15))
+        fig, axes = plt.subplots(5, 2, figsize=(15, 19))
         fig.suptitle("Network Random Edge Failure Simulation — All Metrics",
                      fontsize=13, fontweight="bold")
 
@@ -301,7 +398,9 @@ class SimulationVisualiser:
         self.plot_cluster_count(ax=axes[2, 0])
         self.plot_diameter(ax=axes[2, 1])
         self.plot_largest_component_diameter(ax=axes[3, 0])
-        self.plot_degree_distribution(stage=stage_for_degree_dist, ax=axes[3, 1])
+        self.plot_clustering(ax=axes[3, 1])
+        self.plot_degree_distribution(stage=stage_for_degree_dist, ax=axes[4, 0])
+        axes[4, 1].set_visible(False)
 
         plt.tight_layout()
         plt.show()

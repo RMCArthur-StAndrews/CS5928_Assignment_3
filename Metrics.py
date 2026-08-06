@@ -5,15 +5,32 @@ import networkx as nx
 
 
 class GraphMetricCollector:
+    """
+    Class that computes and returns structural metrics for a NetworkX graph at a single point in time.
+    Large graphs use sampling to keep runtime bounded.
+    """
+
     EXACT_SHORTEST_PATH_THRESHOLD = 1200
     EXACT_DIAMETER_THRESHOLD = 400
     SAMPLED_SOURCE_COUNT = 8
 
     def __init__(self, graph):
+        """
+        Constructor for GraphMetricCollector.
+
+        @param graph The NetworkX graph to collect metrics from.
+        """
         self.graph = graph
 
     def _distance_metrics_for_connected_graph(self, graph, node_count):
-        """Return average shortest path and diameter for a connected graph."""
+        """
+        Method that computes average shortest path length and diameter for a fully connected graph,
+        using exact algorithms for small graphs and sampling for large ones.
+
+        @param graph A connected NetworkX graph.
+        @param node_count The number of nodes in the graph.
+        @return A tuple (average_shortest_path, diameter).
+        """
         if node_count <= 1:
             return 0.0, 0
 
@@ -37,7 +54,12 @@ class GraphMetricCollector:
         return average_shortest_path, diameter
 
     def _component_stats(self):
-        """Compute connected-component-derived stats once per stage."""
+        """
+        Method that computes connected-component statistics for the current graph state.
+
+        @return A dict containing is_connected, connectivity, cluster_sizes_and_counts,
+                and largest_component_nodes.
+        """
         node_count = self.graph.number_of_nodes()
         if node_count == 0:
             return {
@@ -60,17 +82,23 @@ class GraphMetricCollector:
                 largest_component_size = component_size
                 largest_component_nodes = component
 
-        connectivity = (largest_component_size / node_count) >= 0.5
+        connectivity = component_count == 1
 
         return {
-            "is_connected": component_count == 1,
+            "is_connected": connectivity,
             "connectivity": connectivity,
             "cluster_sizes_and_counts": sorted(cluster_counts.items()),
             "largest_component_nodes": largest_component_nodes,
         }
 
     def _sample_distance_stats(self, graph, sample_size=None):
-        """Approximate distance stats from a bounded set of BFS source nodes."""
+        """
+        Method that approximates average shortest path and diameter via BFS from a small sample of nodes.
+
+        @param graph The NetworkX graph to sample distances from.
+        @param sample_size Optional number of source nodes to sample; defaults to SAMPLED_SOURCE_COUNT.
+        @return A dict with keys "average" (estimated mean path length) and "diameter" (estimated diameter).
+        """
         node_count = graph.number_of_nodes()
         if node_count == 0:
             return {"average": 0.0, "diameter": 0}
@@ -96,7 +124,13 @@ class GraphMetricCollector:
         
     
     def collect_metrics(self):
-        """Collect and return graph metrics as a dictionary."""
+        """
+        Method that collects all structural metrics for the current graph state and returns them as a dict.
+
+        @return A dict containing connectivity, cluster_sizes_and_counts, average_shortest_path,
+                diameter, largest_component_diameter, average_degree, average_clustering,
+                and degree_distribution.
+        """
         component_stats = self._component_stats()
 
         is_connected = component_stats["is_connected"]
@@ -129,6 +163,7 @@ class GraphMetricCollector:
         diameter = largest_component_diameter
 
         average_degree, degree_distribution = self._degree_stats()
+        average_clustering = self._average_clustering()
 
         metrics = {
             "connectivity": component_stats["connectivity"],
@@ -137,12 +172,36 @@ class GraphMetricCollector:
             "diameter": diameter,
             "largest_component_diameter": largest_component_diameter,
             "average_degree": average_degree,
+            "average_clustering": average_clustering,
             "degree_distribution": degree_distribution,
         }
         return metrics
 
+    def _average_clustering(self):
+        """
+        Method that computes the average clustering coefficient, using a node sample for large graphs
+        to keep runtime bounded.
+
+        @return The average clustering coefficient as a float between 0 and 1.
+        """
+        node_count = self.graph.number_of_nodes()
+        if node_count == 0:
+            return 0.0
+        if node_count <= 1000:
+            return nx.average_clustering(self.graph)
+        nodes = list(self.graph.nodes())
+        step = max(node_count // 500, 1)
+        sample = nodes[::step][:500]
+        clustering = nx.clustering(self.graph, nodes=sample)
+        return sum(clustering.values()) / len(clustering) if clustering else 0.0
+
     def _degree_stats(self):
-        """Return average degree and degree distribution in one graph pass."""
+        """
+        Method that computes average degree and the full degree distribution in a single pass over the graph.
+
+        @return A tuple (average_degree, degree_distribution) where degree_distribution is a dict
+                mapping degree value to node count.
+        """
         degree_sum = 0
         node_count = 0
         degree_count = Counter(d for _, d in self.graph.degree())

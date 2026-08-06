@@ -4,15 +4,17 @@ from Metrics import GraphMetricCollector
 
 
 class ProgressiveRandomFailure:
-    """Handles progressive random edge failure of a network."""
+    """
+    Class that applies progressive random edge failure to a network and collects metrics at each stage.
+    """
 
     def __init__(self, graph, failure_rate, max_stages=None):
         """
-        Constructor for the ProgressiveRandomFailure class.
+        Constructor for ProgressiveRandomFailure.
 
-        :param graph: The graph on which to perform random failure.
-        :param failure_rate: The rate at which edges will fail (between 0 and 1).
-        :param max_stages: Optional safety cap on number of degradation stages.
+        @param graph The NetworkX graph on which to perform random failure.
+        @param failure_rate The probability of each edge being removed at every stage (between 0 and 1).
+        @param max_stages Optional upper bound on the number of degradation stages.
         """
         self.graph = graph
         self.failure_rate = failure_rate
@@ -20,12 +22,14 @@ class ProgressiveRandomFailure:
 
     def apply_overall_failure(self, should_stop=None, keep_graph_snapshots=True):
         """
-        Progressively apply random edge failures and collect metrics at each step.
-        Graph snapshots are retained only for the initial state and the first
-        collapse state (or final state if collapse never occurs).
+        Method that iteratively applies random edge failures until the graph first becomes disconnected.
+        Metrics are collected after every stage. Graph snapshots are retained only for the initial
+        state and the first collapse state (or final state if collapse never occurs).
 
-        :param keep_graph_snapshots: Whether to retain initial/collapse graph copies.
-        :return: (graphs, metrics) where graphs has two entries: [initial, collapse_or_final].
+        @param should_stop Optional callable that returns True when the caller requests early termination.
+        @param keep_graph_snapshots Whether to retain deep copies of the initial and collapse graphs.
+        @return A tuple (graphs, metrics) where graphs is [initial, collapse_or_final] and metrics
+                is the list of metric dicts collected at each stage.
         """
         metric_collector = GraphMetricCollector(self.graph)
         initial_graph = self.graph.copy() if keep_graph_snapshots else None
@@ -60,9 +64,10 @@ class ProgressiveRandomFailure:
 
     def apply_single_stage_failure(self):
         """
-        Function applies a single stage of random failure to the graph based on the specified failure rate. 
-        Failure occurs on edges only and not on nodes. 
-        :return: Number of edges removed in this stage.
+        Method that removes a Binomially-sampled number of edges from the graph in a single stage.
+        Only edges are removed; nodes are never deleted.
+
+        @return The number of edges removed in this stage.
         """
         edges = list(self.graph.edges())
         edge_count = len(edges)

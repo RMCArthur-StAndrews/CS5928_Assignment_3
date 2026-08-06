@@ -7,22 +7,43 @@ import RandomFailure as rf
 
 
 class SimulationRunner:
-    """Runs random-failure simulations for one or more network topologies."""
+    """
+    Class that orchestrates repeated random-failure simulation runs across one or more network topologies.
+    """
 
     FULL_GC_INTERVAL = 5
 
     def _copy_graph(self, graph):
-        """Return a fresh copy of a template graph for one simulation run."""
+        """
+        Method that returns a shallow copy of a template graph for use in one simulation run.
+
+        @param graph The NetworkX graph to copy.
+        @return A new NetworkX graph with the same nodes and edges.
+        """
         return graph.copy()
 
     def _collect_after_run(self, run_index: int):
-        """Collect young-generation garbage every run; full GC periodically."""
+        """
+        Method that triggers garbage collection after each run, with a full collection every FULL_GC_INTERVAL runs.
+
+        @param run_index The 1-based index of the run that just completed.
+        """
         gc.collect(0)
         if run_index % self.FULL_GC_INTERVAL == 0:
             gc.collect()
 
     def _run_single(self, graph_factory: Callable[[], Any], failure_rate: float,
                     max_stages: int = None, stop_event: Event = None):
+        """
+        Method that executes a single simulation run: builds the graph, applies progressive failure,
+        and returns the collected metrics.
+
+        @param graph_factory Callable that returns a fresh NetworkX graph for this run.
+        @param failure_rate Edge removal probability applied at each degradation stage.
+        @param max_stages Optional cap on the number of stages before the run is terminated.
+        @param stop_event Optional threading Event; if set, the run is aborted early.
+        @return A list of metric dicts, one per failure stage including the initial state.
+        """
         if stop_event and stop_event.is_set():
             return []
 
@@ -43,7 +64,12 @@ class SimulationRunner:
             del graph
 
     def _shutdown_executor_on_caller_stop(self, executor: ThreadPoolExecutor, futures: List[Any]):
-        """Best-effort cancellation path when the caller terminates early."""
+        """
+        Method that performs best-effort cancellation of pending futures when the caller terminates early.
+
+        @param executor The ThreadPoolExecutor whose futures should be cancelled.
+        @param futures The list of Future objects to cancel.
+        """
         for future in futures:
             future.cancel()
         executor.shutdown(wait=False, cancel_futures=True)
@@ -52,14 +78,17 @@ class SimulationRunner:
                        failure_rate: float, max_stages: int = None,
                        run_parallel: bool = False, max_workers: int = None,
                        stop_event: Event = None) -> List[list]:
-        """Run one topology experiment for num_runs simulations.
+        """
+        Method that runs a complete experiment for a single topology by executing num_runs independent simulations.
 
-        :param graph_factory: Callable that returns a fresh NetworkX graph.
-        :param num_runs: Number of independent simulation runs.
-        :param failure_rate: Edge failure probability per stage.
-        :param max_stages: Optional cap for maximum degradation stages.
-        :param run_parallel: Whether to parallelize runs with threads.
-        :param max_workers: Optional worker cap when run_parallel=True.
+        @param graph_factory Callable that returns a fresh NetworkX graph for each run.
+        @param num_runs Number of independent simulation runs to perform.
+        @param failure_rate Edge removal probability applied at each degradation stage.
+        @param max_stages Optional cap on the number of stages per run.
+        @param run_parallel Whether to execute runs concurrently using a thread pool.
+        @param max_workers Optional limit on the number of worker threads when run_parallel is True.
+        @param stop_event Optional threading Event that signals early termination.
+        @return A list of runs, where each run is a list of metric dicts.
         """
         if num_runs <= 0:
             return []
@@ -114,10 +143,18 @@ class SimulationRunner:
                                       run_parallel: bool = False,
                                       max_workers: int = None,
                                       stop_event: Event = None) -> List[list]:
-        """Run repeated simulations from a pre-built graph template.
+        """
+        Method that runs repeated simulations by copying a pre-built template graph for each run,
+        avoiding the cost of regenerating a deterministic topology on every iteration.
 
-        This avoids regenerating an expensive topology for every run. Each
-        simulation starts from a copy of the provided template graph.
+        @param template_graph A pre-built NetworkX graph used as the starting point for every run.
+        @param num_runs Number of independent simulation runs to perform.
+        @param failure_rate Edge removal probability applied at each degradation stage.
+        @param max_stages Optional cap on the number of stages per run.
+        @param run_parallel Whether to execute runs concurrently using a thread pool.
+        @param max_workers Optional limit on the number of worker threads when run_parallel is True.
+        @param stop_event Optional threading Event that signals early termination.
+        @return A list of runs, where each run is a list of metric dicts.
         """
         return self.run_experiment(
             graph_factory=lambda: self._copy_graph(template_graph),
@@ -132,13 +169,15 @@ class SimulationRunner:
     def run_experiments_parallel(self, experiments: Dict[str, Callable[[], Any]], num_runs: int,
                                  failure_rate: float, max_stages: int = None,
                                  max_workers: int = None) -> Dict[str, List[list]]:
-        """Run each named experiment on its own thread.
+        """
+        Method that runs multiple named experiments concurrently, one thread per experiment.
 
-        :param experiments: Mapping of experiment name to graph factory callable.
-        :param num_runs: Number of runs per experiment.
-        :param failure_rate: Edge failure probability per stage.
-        :param max_stages: Optional cap for maximum degradation stages.
-        :param max_workers: Optional worker cap for experiment-level threads.
+        @param experiments Mapping of experiment name to a graph factory callable.
+        @param num_runs Number of runs per experiment.
+        @param failure_rate Edge removal probability applied at each degradation stage.
+        @param max_stages Optional cap on the number of stages per run.
+        @param max_workers Optional limit on the number of experiment-level worker threads.
+        @return A dict mapping each experiment name to its list of simulation run results.
         """
         if not experiments:
             return {}
