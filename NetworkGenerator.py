@@ -19,7 +19,7 @@ class CreatePowerLawNetwork:
 
     def generate(self):
         """
-        Method that generates a Power-Law network using the powerlaw_cluster_graph algorithm.
+        Function that generates a Power-Law network using the powerlaw_cluster_graph algorithm.
 
         @return A NetworkX undirected Power-Law graph.
         """
@@ -43,7 +43,7 @@ class CreateERNetwork:
 
     def generate(self):
         """
-        Method that generates an Erdős–Rényi random network.
+        Function that generates an Erdős–Rényi random network.
 
         @return A NetworkX undirected Erdős–Rényi graph.
         """
@@ -67,7 +67,7 @@ class CreateGridNetwork:
 
     def _grid_dimensions(self):
         """
-        Method that computes the per-axis size list required by networkx.grid_graph.
+        Function that computes the per-axis size list required by networkx.grid_graph.
 
         @return A list of range objects, one per dimension, each of length side = round(node_count^(1/d)).
         """
@@ -78,7 +78,7 @@ class CreateGridNetwork:
 
     def generate(self):
         """
-        Method that generates a non-periodic grid network with the configured dimensions.
+        Function that generates a non-periodic grid network with the configured dimensions.
 
         @return A NetworkX undirected grid graph.
         """

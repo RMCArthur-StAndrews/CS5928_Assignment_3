@@ -10,8 +10,11 @@ class GraphMetricCollector:
     Large graphs use sampling to keep runtime bounded.
     """
 
+    # Constant for the threshold above which exact shortest path calculations are replaced with sampling.
     EXACT_SHORTEST_PATH_THRESHOLD = 1200
+    # Constant for the threshold above which exact diameter calculations are replaced with sampling.
     EXACT_DIAMETER_THRESHOLD = 400
+    # Constant for the number of source nodes to sample when estimating average shortest path and diameter.
     SAMPLED_SOURCE_COUNT = 8
 
     def __init__(self, graph):
@@ -158,8 +161,6 @@ class GraphMetricCollector:
                     )
                 )
 
-        # Always use the largest-component diameter as the "network diameter"
-        # (end-to-end width of the network at this stage).
         diameter = largest_component_diameter
 
         average_degree, degree_distribution = self._degree_stats()

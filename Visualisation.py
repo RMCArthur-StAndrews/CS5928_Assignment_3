@@ -377,10 +377,6 @@ class SimulationVisualiser:
             plt.show()
         return ax
 
-    # -----------------------------------------------------------------------
-    # Combined dashboard
-    # -----------------------------------------------------------------------
-
     def plot_all(self, stage_for_degree_dist=-1):
         """
         Method that renders all metric panels in a single combined dashboard figure.

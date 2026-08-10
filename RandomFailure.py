@@ -74,7 +74,6 @@ class ProgressiveRandomFailure:
         if edge_count == 0:
             return 0
 
-        # Equivalent to independent Bernoulli edge removals but much faster.
         remove_count = int(np.random.binomial(edge_count, self.failure_rate))
         if remove_count <= 0:
             return 0
