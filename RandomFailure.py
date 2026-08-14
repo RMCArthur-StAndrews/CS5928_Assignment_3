@@ -20,14 +20,15 @@ class ProgressiveRandomFailure:
         self.failure_rate = failure_rate
         self.max_stages = max_stages
 
-    def apply_overall_failure(self, should_stop=None, keep_graph_snapshots=True):
+    def apply_overall_failure(self, should_stop=None, keep_graph_snapshots=True, stop_on_collapse=True):
         """
-        Method that iteratively applies random edge failures until the graph first becomes disconnected.
+        Method that iteratively applies random edge failures until overall connectivity collapses.
         Metrics are collected after every stage. Graph snapshots are retained only for the initial
         state and the first collapse state (or final state if collapse never occurs).
 
         @param should_stop Optional callable that returns True when the caller requests early termination.
         @param keep_graph_snapshots Whether to retain deep copies of the initial and collapse graphs.
+        @param stop_on_collapse Whether to stop immediately once overall connectivity collapses.
         @return A tuple (graphs, metrics) where graphs is [initial, collapse_or_final] and metrics
                 is the list of metric dicts collected at each stage.
         """
@@ -35,12 +36,13 @@ class ProgressiveRandomFailure:
         initial_graph = self.graph.copy() if keep_graph_snapshots else None
         metrics_at_stages = [metric_collector.collect_metrics()]
         collapse_graph = None
+        has_collapsed = not metrics_at_stages[0]["connectivity"]
         stages_completed = 0
 
-        if not metrics_at_stages[0]["connectivity"]:
-            collapse_graph = self.graph.copy() if keep_graph_snapshots else None
+        if has_collapsed and keep_graph_snapshots:
+            collapse_graph = self.graph.copy()
 
-        while collapse_graph is None:
+        while not has_collapsed:
             if should_stop and should_stop():
                 break
 
@@ -54,8 +56,15 @@ class ProgressiveRandomFailure:
             stages_completed += 1
             stage_metrics = metric_collector.collect_metrics()
             metrics_at_stages.append(stage_metrics)
-            if not stage_metrics["connectivity"]:
-                collapse_graph = self.graph.copy() if keep_graph_snapshots else None
+
+            if stop_on_collapse and not stage_metrics["connectivity"]:
+                has_collapsed = True
+                if keep_graph_snapshots:
+                    collapse_graph = self.graph.copy()
+                break
+
+            if self.graph.number_of_edges() == 0:
+                break
 
         if collapse_graph is None and keep_graph_snapshots:
             collapse_graph = self.graph.copy()

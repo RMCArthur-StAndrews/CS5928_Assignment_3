@@ -1,6 +1,14 @@
 import networkx as nx
 
 
+def generate_er_network(node_count, edge_probability):
+    return nx.erdos_renyi_graph(n=node_count, p=edge_probability)
+
+
+def generate_power_law_network(node_count, exponent):
+    return nx.powerlaw_cluster_graph(n=node_count, m=int(exponent), p=0.0)
+
+
 
 class CreatePowerLawNetwork:
     """
@@ -23,7 +31,7 @@ class CreatePowerLawNetwork:
 
         @return A NetworkX undirected Power-Law graph.
         """
-        return nx.powerlaw_cluster_graph(n=self.node_count, m=int(self.exponent), p=0.0)
+        return generate_power_law_network(self.node_count, self.exponent)
 
 class CreateERNetwork:
     """
@@ -47,7 +55,7 @@ class CreateERNetwork:
 
         @return A NetworkX undirected Erdős–Rényi graph.
         """
-        return nx.erdos_renyi_graph(n=self.node_count, p=self.edge_probability)
+        return generate_er_network(self.node_count, self.edge_probability)
 
 
 class CreateGridNetwork:

@@ -1,9 +1,27 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from functools import partial
 import gc
+import json
+from pathlib import Path
 from threading import Event
 from typing import Callable, Dict, List, Any
 
 import RandomFailure as rf
+
+
+def _copy_graph(graph):
+    return graph.copy()
+
+
+def _run_single_process(graph_factory, failure_rate, max_stages):
+    graph = graph_factory()
+    failure_runner = rf.ProgressiveRandomFailure(
+        graph, failure_rate, max_stages=max_stages
+    )
+    _, metrics = failure_runner.apply_overall_failure(
+        keep_graph_snapshots=False,
+    )
+    return metrics
 
 
 class SimulationRunner:
@@ -13,6 +31,26 @@ class SimulationRunner:
 
     FULL_GC_INTERVAL = 5
 
+    def export_results(self, runs: List[list], output_path: str,
+                       typology: str, parameters: Dict[str, Any]) -> None:
+        """
+        Write completed simulation runs and their parameters to a JSON file.
+
+        @param runs Simulation results returned by run_experiment.
+        @param output_path Destination JSON path.
+        @param typology Display name for the network architecture.
+        @param parameters Parameters used to generate and degrade the networks.
+        """
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "typology": typology,
+            "parameters": parameters,
+            "num_runs": len(runs),
+            "runs": runs,
+        }
+        output_file.write_text(json.dumps(payload), encoding="utf-8")
+
     def _copy_graph(self, graph):
         """
         Method that returns a shallow copy of a template graph for use in one simulation run.
@@ -20,7 +58,7 @@ class SimulationRunner:
         @param graph The NetworkX graph to copy.
         @return A new NetworkX graph with the same nodes and edges.
         """
-        return graph.copy()
+        return _copy_graph(graph)
 
     def _collect_after_run(self, run_index: int):
         """
@@ -85,9 +123,9 @@ class SimulationRunner:
         @param num_runs Number of independent simulation runs to perform.
         @param failure_rate Edge removal probability applied at each degradation stage.
         @param max_stages Optional cap on the number of stages per run.
-        @param run_parallel Whether to execute runs concurrently using a thread pool.
-        @param max_workers Optional limit on the number of worker threads when run_parallel is True.
-        @param stop_event Optional threading Event that signals early termination.
+        @param run_parallel Whether to execute runs concurrently using worker processes.
+        @param max_workers Optional limit on the number of worker processes when run_parallel is True.
+        @param stop_event Optional threading Event for sequential or caller-level termination.
         @return A list of runs, where each run is a list of metric dicts.
         """
         if num_runs <= 0:
@@ -106,21 +144,20 @@ class SimulationRunner:
                         stop_event=stop_event,
                     )
                 )
+                print(f"Completed run {run_index}/{num_runs}")
                 self._collect_after_run(run_index)
             return runs
 
-        executor = ThreadPoolExecutor(max_workers=max_workers)
+        executor = ProcessPoolExecutor(max_workers=max_workers)
         futures = []
         caller_stopped = False
-        local_stop_event = stop_event or Event()
         try:
             futures = [
                 executor.submit(
-                    self._run_single,
+                    _run_single_process,
                     graph_factory,
                     failure_rate,
                     max_stages,
-                    local_stop_event,
                 )
                 for _ in range(num_runs)
             ]
@@ -131,7 +168,6 @@ class SimulationRunner:
             return runs
         except (KeyboardInterrupt, SystemExit):
             caller_stopped = True
-            local_stop_event.set()
             self._shutdown_executor_on_caller_stop(executor, futures)
             raise
         finally:
@@ -157,7 +193,7 @@ class SimulationRunner:
         @return A list of runs, where each run is a list of metric dicts.
         """
         return self.run_experiment(
-            graph_factory=lambda: self._copy_graph(template_graph),
+            graph_factory=partial(_copy_graph, template_graph),
             num_runs=num_runs,
             failure_rate=failure_rate,
             max_stages=max_stages,

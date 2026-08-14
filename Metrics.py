@@ -15,7 +15,7 @@ class GraphMetricCollector:
     # Constant for the threshold above which exact diameter calculations are replaced with sampling.
     EXACT_DIAMETER_THRESHOLD = 400
     # Constant for the number of source nodes to sample when estimating average shortest path and diameter.
-    SAMPLED_SOURCE_COUNT = 8
+    SAMPLED_SOURCE_COUNT = 4
 
     def __init__(self, graph):
         """
@@ -24,6 +24,8 @@ class GraphMetricCollector:
         @param graph The NetworkX graph to collect metrics from.
         """
         self.graph = graph
+        # Random failure removes edges only, so the node set remains stable for every stage.
+        self._nodes = list(graph.nodes())
 
     def _distance_metrics_for_connected_graph(self, graph, node_count):
         """
@@ -85,10 +87,10 @@ class GraphMetricCollector:
                 largest_component_size = component_size
                 largest_component_nodes = component
 
-        connectivity = component_count == 1
+        connectivity = (largest_component_size / node_count) >= 0.5
 
         return {
-            "is_connected": connectivity,
+            "is_connected": component_count == 1,
             "connectivity": connectivity,
             "cluster_sizes_and_counts": sorted(cluster_counts.items()),
             "largest_component_nodes": largest_component_nodes,
@@ -107,7 +109,7 @@ class GraphMetricCollector:
             return {"average": 0.0, "diameter": 0}
 
         sample_size = min(sample_size or self.SAMPLED_SOURCE_COUNT, node_count)
-        nodes = list(graph.nodes())
+        nodes = self._nodes if graph is self.graph else list(graph.nodes())
         step = max(node_count // sample_size, 1)
         sampled_nodes = nodes[::step][:sample_size]
 
@@ -190,7 +192,7 @@ class GraphMetricCollector:
             return 0.0
         if node_count <= 1000:
             return nx.average_clustering(self.graph)
-        nodes = list(self.graph.nodes())
+        nodes = self._nodes
         step = max(node_count // 500, 1)
         sample = nodes[::step][:500]
         clustering = nx.clustering(self.graph, nodes=sample)
