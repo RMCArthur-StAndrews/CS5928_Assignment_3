@@ -9,7 +9,7 @@ __pycache__/
 
 _build/
 simulation_exports/
-
+tests/
 *.log
 logs/
 
